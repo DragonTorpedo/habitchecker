@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>3D Scroll Timer</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+
+  #scene-container {
+    width: 80%;
+    height: 60vh;
+    perspective: 1000px;
+    margin-bottom: 20px;
+  }
+
+  #controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 1em;
+  }
+
+  #settings {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  input[type=number], select {
+    padding: 5px;
+  }
+</style>
+</head>
+<body>
+
+<div id="scene-container"></div>
+
+<div id="controls">
+  <button id="startBtn">Start</button>
+  <button id="pauseBtn">Pause</button>
+  <button id="resetBtn">Reset</button>
+  <button id="restBtn">Rest Timer</button>
+</div>
+
+<div id="settings">
+  <label>Minutes: <input type="number" id="minutesInput" min="1" max="120" value="1"></label>
+  <label>Seconds: <input type="number" id="secondsInput" min="0" max="59" value="0"></label>
+  <label>Background:
+    <select id="bgSelect">
+      <option value="linear-gradient(to right, #4facfe, #00f2fe)">Blue Gradient</option>
+      <option value="linear-gradient(to right, #ff7e5f, #feb47b)">Sunset</option>
+      <option value="linear-gradient(to right, #43cea2, #185a9d)">Sea</option>
+    </select>
+  </label>
+  <label>Music:
+    <input type="file" id="musicFile" accept="audio/*" />
+  </label>
+  <label>Sound:
+    <input type="file" id="soundFile" accept="audio/*" />
+  </label>
+</div>
+
+<!-- Include Three.js Library for 3D effects -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
+  // Initialize global variables
+  let scene, camera, renderer;
+  let digitMeshes = [];
+  let timerDuration = 60; // default 1 minute
+  let remainingTime = timerDuration;
+  let timerInterval = null;
+  let isRunning = false;
+  let isRestMode = false;
+
+  // Audio elements
+  let musicAudio = new Audio();
+  let soundEffect = new Audio();
+
+  // Setup scene
+  function initScene() {
+    const container = document.getElementById('scene-container');
+
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.z = 50;
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    createDigits();
+    animate();
+  }
+
+  // Create 6 digits (HH:MM:SS)
+  function createDigits() {
+    const digitCount = 6;
+    const spacing = 8;
+    for (let i = 0; i < digitCount; i++) {
+      const digitGroup = new THREE.Group();
+
+      // Create 3D text for each digit
+      const loader = new THREE.FontLoader();
+      loader.load('https://cdn.jsdelivr.net/npm/three@0.152.2/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const digitMesh = new THREE.Mesh(new THREE.TextGeometry('0', {
+          font: font,
+          size: 4,
+          height: 1,
+        }), material);
+        digitMesh.name = `digit${i}`;
+        digitGroup.add(digitMesh);
+      });
+
+      digitGroup.position.x = (i - 2.5) * spacing;
+      scene.add(digitGroup);
+      digitMeshes.push(digitGroup);
+    }
+  }
+
+  // Update display digits
+  function updateDisplay() {
+    const timeStr = new Date(remainingTime * 1000).toISOString().substr(11, 8);
+    const digits = timeStr.replace(/:/g, '').split('');
+    for (let i = 0; i < digitMeshes.length; i++) {
+      const digitGroup = digitMeshes[i];
+      const digit = digits[i];
+      // Remove old mesh
+      digitGroup.children = [];
+      // Create new mesh
+      const loader = new THREE.FontLoader();
+      loader.load('https://cdn.jsdelivr.net/npm/three@0.152.2/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const digitMesh = new THREE.Mesh(new THREE.TextGeometry(digit, {
+          font: font,
+          size: 4,
+          height: 1,
+        }), material);
+        digitGroup.add(digitMesh);
+      });
+    }
+  }
+
+  // Animate scene
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+
+  // Timer controls
+  function startTimer() {
+    if (isRunning) return;
+    isRunning = true;
+    timerInterval = setInterval(() => {
+      if (remainingTime > 0) {
+        remainingTime--;
+        updateDisplay();
+      } else {
+        clearInterval(timerInterval);
+        isRunning = false;
+        playSound();
+        if (isRestMode) {
+          alert('Rest timer finished!');
+        } else {
+          alert('Timer finished!');
+        }
+      }
+    }, 1000);
+  }
+
+  function pauseTimer() {
+    clearInterval(timerInterval);
+    isRunning = false;
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    remainingTime = timerDuration;
+    updateDisplay();
+  }
+
+  // Load user settings
+  document.getElementById('startBtn').onclick = () => {
+    if (!isRunning) startTimer();
+  };
+  document.getElementById('pauseBtn').onclick = pauseTimer;
+  document.getElementById('resetBtn').onclick = resetTimer;
+
+  document.getElementById('restBtn').onclick = () => {
+    isRestMode = true;
+    remainingTime = 10; // Example rest time
+    updateDisplay();
+    startTimer();
+  };
+
+  // Settings inputs
+  document.getElementById('minutesInput').onchange = () => {
+    const min = parseInt(document.getElementById('minutesInput').value);
+    const sec = parseInt(document.getElementById('secondsInput').value);
+    timerDuration = min * 60 + sec;
+    remainingTime = timerDuration;
+    updateDisplay();
+  };
+
+  document.getElementById('secondsInput').onchange = () => {
+    const min = parseInt(document.getElementById('minutesInput').value);
+    const sec = parseInt(document.getElementById('secondsInput').value);
+    timerDuration = min * 60 + sec;
+    remainingTime = timerDuration;
+    updateDisplay();
+  };
+
+  document.getElementById('bgSelect').onchange = () => {
+    document.body.style.background = document.getElementById('bgSelect').value;
+  };
+
+  document.getElementById('musicFile').onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      musicAudio.src = URL.createObjectURL(file);
+    }
+  };
+
+  document.getElementById('soundFile').onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      soundEffect.src = URL.createObjectURL(file);
+    }
+  };
+
+  function playSound() {
+    if (soundEffect.src) {
+      soundEffect.play();
+    }
+  }
+
+  // Initialize everything
+  initScene();
+  updateDisplay();
+
+</script>
+</body>
+</html>
