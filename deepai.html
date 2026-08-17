@@ -1,267 +1,535 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>3D Scroll Timer</title>
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    font-family: Arial, sans-serif;
-    background: linear-gradient(to right, #4facfe, #00f2fe);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Spatial Clock & Rest Timer</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a, #1e1b4b, #31103f);
+      --accent: #818cf8;
+      --accent-glow: rgba(129, 140, 248, 0.4);
+      --card-bg: rgba(15, 23, 42, 0.65);
+      --text: #f8fafc;
+      --digit-bg: #1e293b;
+      --digit-text: #6366f1;
+    }
 
-  #scene-container {
-    width: 80%;
-    height: 60vh;
-    perspective: 1000px;
-    margin-bottom: 20px;
-  }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
 
-  #controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
+    body {
+      min-height: 100vh;
+      background: var(--bg-gradient);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 20px;
+    }
 
-  button {
-    padding: 10px 20px;
-    font-size: 1em;
-  }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
 
-  #settings {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+    .container {
+      width: 100%;
+      max-width: 850px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 40px 30px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px var(--accent-glow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
 
-  input[type=number], select {
-    padding: 5px;
-  }
-</style>
+    /* Mode Navigation */
+    .mode-nav {
+      display: flex;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px;
+      border-radius: 50px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    /* Status Label */
+    .status-label {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* 3D Digit Display */
+    .display-3d {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      perspective: 1000px;
+      padding: 20px 0;
+    }
+
+    .digit-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .digit-slot {
+      width: 70px;
+      height: 110px;
+      position: relative;
+      transform-style: preserve-3d;
+      perspective: 600px;
+    }
+
+    .digit-wheel {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .digit-card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: var(--digit-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+      font-weight: 800;
+      color: var(--digit-text);
+      box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5), 0 5px 15px rgba(0, 0, 0, 0.3);
+      backface-visibility: hidden;
+    }
+
+    .separator {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--accent);
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.3; }
+      to { opacity: 1; }
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 12px 32px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Settings Panel */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-group label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .setting-group input, .setting-group select {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      outline: none;
+      font-size: 0.95rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 650px) {
+      .digit-slot { width: 45px; height: 75px; }
+      .digit-card { font-size: 2.2rem; }
+      .separator { font-size: 2rem; }
+    }
+  </style>
 </head>
 <body>
 
-<div id="scene-container"></div>
+  <div class="container">
+    <!-- Mode Switcher -->
+    <div class="mode-nav">
+      <button class="mode-btn active" onclick="setMode('work')">Focus Timer</button>
+      <button class="mode-btn" onclick="setMode('rest')">Rest Timer</button>
+      <button class="mode-btn" onclick="setMode('clock')">Live Clock</button>
+    </div>
 
-<div id="controls">
-  <button id="startBtn">Start</button>
-  <button id="pauseBtn">Pause</button>
-  <button id="resetBtn">Reset</button>
-  <button id="restBtn">Rest Timer</button>
-</div>
+    <!-- Mode Banner -->
+    <div class="status-label" id="statusLabel">Focus Time</div>
 
-<div id="settings">
-  <label>Minutes: <input type="number" id="minutesInput" min="1" max="120" value="1"></label>
-  <label>Seconds: <input type="number" id="secondsInput" min="0" max="59" value="0"></label>
-  <label>Background:
-    <select id="bgSelect">
-      <option value="linear-gradient(to right, #4facfe, #00f2fe)">Blue Gradient</option>
-      <option value="linear-gradient(to right, #ff7e5f, #feb47b)">Sunset</option>
-      <option value="linear-gradient(to right, #43cea2, #185a9d)">Sea</option>
-    </select>
-  </label>
-  <label>Music:
-    <input type="file" id="musicFile" accept="audio/*" />
-  </label>
-  <label>Sound:
-    <input type="file" id="soundFile" accept="audio/*" />
-  </label>
-</div>
+    <!-- 3D Digit Carousel -->
+    <div class="display-3d">
+      <div class="digit-group">
+        <div class="digit-slot"><div class="digit-wheel" id="h1"></div></div>
+        <div class="digit-slot"><div class="digit-wheel" id="h2"></div></div>
+      </div>
+      <div class="separator">:</div>
+      <div class="digit-group">
+        <div class="digit-slot"><div class="digit-wheel" id="m1"></div></div>
+        <div class="digit-slot"><div class="digit-wheel" id="m2"></div></div>
+      </div>
+      <div class="separator">:</div>
+      <div class="digit-group">
+        <div class="digit-slot"><div class="digit-wheel" id="s1"></div></div>
+        <div class="digit-slot"><div class="digit-wheel" id="s2"></div></div>
+      </div>
+    </div>
 
-<!-- Include Three.js Library for 3D effects -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script>
-  // Initialize global variables
-  let scene, camera, renderer;
-  let digitMeshes = [];
-  let timerDuration = 60; // default 1 minute
-  let remainingTime = timerDuration;
-  let timerInterval = null;
-  let isRunning = false;
-  let isRestMode = false;
+    <!-- Action Buttons -->
+    <div class="controls">
+      <button class="btn btn-primary" id="startBtn" onclick="toggleTimer()">Start</button>
+      <button class="btn btn-secondary" onclick="resetTimer()">Reset</button>
+    </div>
 
-  // Audio elements
-  let musicAudio = new Audio();
-  let soundEffect = new Audio();
+    <!-- Dynamic Settings -->
+    <div class="settings-grid">
+      <div class="setting-group">
+        <label for="workInput">Focus Duration (Min)</label>
+        <input type="number" id="workInput" value="25" min="1" max="180" onchange="updateCustomTimes()">
+      </div>
+      <div class="setting-group">
+        <label for="restInput">Rest Duration (Min)</label>
+        <input type="number" id="restInput" value="5" min="1" max="60" onchange="updateCustomTimes()">
+      </div>
+      <div class="setting-group">
+        <label for="bgSelect">Theme Background</label>
+        <select id="bgSelect" onchange="changeTheme(this.value)">
+          <option value="cosmic">Cosmic Violet</option>
+          <option value="cyberpunk">Cyberpunk Neon</option>
+          <option value="emerald">Emerald Forest</option>
+          <option value="sunset">Solar Sunset</option>
+        </select>
+      </div>
+      <div class="setting-group">
+        <label for="audioSelect">Ambient Soundscape</label>
+        <select id="audioSelect" onchange="toggleAmbientMusic(this.value)">
+          <option value="none">Off</option>
+          <option value="waves">Deep Space Waves</option>
+          <option value="white">Focus White Noise</option>
+        </select>
+      </div>
+    </div>
+  </div>
 
-  // Setup scene
-  function initScene() {
-    const container = document.getElementById('scene-container');
+  <script>
+    // System State
+    let currentMode = 'work'; // 'work', 'rest', 'clock'
+    let timerState = 'stopped'; // 'running', 'paused', 'stopped'
+    let workDuration = 25 * 60;
+    let restDuration = 5 * 60;
+    let timeRemaining = workDuration;
+    let timerInterval = null;
+    let audioCtx = null;
+    let ambientNode = null;
 
-    scene = new THREE.Scene();
+    const slotIDs = ['h1', 'h2', 'm1', 'm2', 's1', 's2'];
+    const currentDigits = { h1: 0, h2: 0, m1: 0, m2: 0, s1: 0, s2: 0 };
 
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 50;
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    container.appendChild(renderer.domElement);
-
-    window.addEventListener('resize', () => {
-      camera.aspect = container.clientWidth / container.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
-    });
-
-    createDigits();
-    animate();
-  }
-
-  // Create 6 digits (HH:MM:SS)
-  function createDigits() {
-    const digitCount = 6;
-    const spacing = 8;
-    for (let i = 0; i < digitCount; i++) {
-      const digitGroup = new THREE.Group();
-
-      // Create 3D text for each digit
-      const loader = new THREE.FontLoader();
-      loader.load('https://cdn.jsdelivr.net/npm/three@0.152.2/examples/fonts/helvetiker_bold.typeface.json', (font) => {
-        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const digitMesh = new THREE.Mesh(new THREE.TextGeometry('0', {
-          font: font,
-          size: 4,
-          height: 1,
-        }), material);
-        digitMesh.name = `digit${i}`;
-        digitGroup.add(digitMesh);
-      });
-
-      digitGroup.position.x = (i - 2.5) * spacing;
-      scene.add(digitGroup);
-      digitMeshes.push(digitGroup);
-    }
-  }
-
-  // Update display digits
-  function updateDisplay() {
-    const timeStr = new Date(remainingTime * 1000).toISOString().substr(11, 8);
-    const digits = timeStr.replace(/:/g, '').split('');
-    for (let i = 0; i < digitMeshes.length; i++) {
-      const digitGroup = digitMeshes[i];
-      const digit = digits[i];
-      // Remove old mesh
-      digitGroup.children = [];
-      // Create new mesh
-      const loader = new THREE.FontLoader();
-      loader.load('https://cdn.jsdelivr.net/npm/three@0.152.2/examples/fonts/helvetiker_bold.typeface.json', (font) => {
-        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const digitMesh = new THREE.Mesh(new THREE.TextGeometry(digit, {
-          font: font,
-          size: 4,
-          height: 1,
-        }), material);
-        digitGroup.add(digitMesh);
+    // Initialize 3D Wheels
+    function init3DWheels() {
+      slotIDs.forEach(id => {
+        const wheel = document.getElementById(id);
+        wheel.innerHTML = '';
+        const radius = 55; // Radius of 3D cylinder
+        for (let i = 0; i < 10; i++) {
+          const card = document.createElement('div');
+          card.className = 'digit-card';
+          card.innerText = i;
+          const angle = i * 36; // 360 / 10
+          card.style.transform = `rotateX(${angle}deg) translateZ(${radius}px)`;
+          wheel.appendChild(card);
+        }
       });
     }
-  }
 
-  // Animate scene
-  function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-  }
+    function setDigit(id, val) {
+      if (currentDigits[id] !== val) {
+        currentDigits[id] = val;
+        const wheel = document.getElementById(id);
+        const angle = -val * 36;
+        wheel.style.transform = `rotateX(${angle}deg)`;
+      }
+    }
 
-  // Timer controls
-  function startTimer() {
-    if (isRunning) return;
-    isRunning = true;
-    timerInterval = setInterval(() => {
-      if (remainingTime > 0) {
-        remainingTime--;
-        updateDisplay();
-      } else {
-        clearInterval(timerInterval);
-        isRunning = false;
-        playSound();
-        if (isRestMode) {
-          alert('Rest timer finished!');
+    function updateDisplay(h, m, s) {
+      const strH = String(h).padStart(2, '0');
+      const strM = String(m).padStart(2, '0');
+      const strS = String(s).padStart(2, '0');
+
+      setDigit('h1', parseInt(strH[0]));
+      setDigit('h2', parseInt(strH[1]));
+      setDigit('m1', parseInt(strM[0]));
+      setDigit('m2', parseInt(strM[1]));
+      setDigit('s1', parseInt(strS[0]));
+      setDigit('s2', parseInt(strS[1]));
+    }
+
+    // Timer Engine
+    function tick() {
+      if (currentMode === 'clock') {
+        const now = new Date();
+        updateDisplay(now.getHours(), now.getMinutes(), now.getSeconds());
+        return;
+      }
+
+      if (timerState === 'running') {
+        if (timeRemaining > 0) {
+          timeRemaining--;
+          renderRemainingTime();
         } else {
-          alert('Timer finished!');
+          playAlarmSound();
+          if (currentMode === 'work') {
+            setMode('rest');
+            toggleTimer(); // Auto-start rest
+          } else if (currentMode === 'rest') {
+            setMode('work');
+            resetTimer();
+          }
         }
       }
-    }, 1000);
-  }
-
-  function pauseTimer() {
-    clearInterval(timerInterval);
-    isRunning = false;
-  }
-
-  function resetTimer() {
-    clearInterval(timerInterval);
-    isRunning = false;
-    remainingTime = timerDuration;
-    updateDisplay();
-  }
-
-  // Load user settings
-  document.getElementById('startBtn').onclick = () => {
-    if (!isRunning) startTimer();
-  };
-  document.getElementById('pauseBtn').onclick = pauseTimer;
-  document.getElementById('resetBtn').onclick = resetTimer;
-
-  document.getElementById('restBtn').onclick = () => {
-    isRestMode = true;
-    remainingTime = 10; // Example rest time
-    updateDisplay();
-    startTimer();
-  };
-
-  // Settings inputs
-  document.getElementById('minutesInput').onchange = () => {
-    const min = parseInt(document.getElementById('minutesInput').value);
-    const sec = parseInt(document.getElementById('secondsInput').value);
-    timerDuration = min * 60 + sec;
-    remainingTime = timerDuration;
-    updateDisplay();
-  };
-
-  document.getElementById('secondsInput').onchange = () => {
-    const min = parseInt(document.getElementById('minutesInput').value);
-    const sec = parseInt(document.getElementById('secondsInput').value);
-    timerDuration = min * 60 + sec;
-    remainingTime = timerDuration;
-    updateDisplay();
-  };
-
-  document.getElementById('bgSelect').onchange = () => {
-    document.body.style.background = document.getElementById('bgSelect').value;
-  };
-
-  document.getElementById('musicFile').onchange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      musicAudio.src = URL.createObjectURL(file);
     }
-  };
 
-  document.getElementById('soundFile').onchange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      soundEffect.src = URL.createObjectURL(file);
+    function renderRemainingTime() {
+      const h = Math.floor(timeRemaining / 3600);
+      const m = Math.floor((timeRemaining % 3600) / 60);
+      const s = timeRemaining % 60;
+      updateDisplay(h, m, s);
     }
-  };
 
-  function playSound() {
-    if (soundEffect.src) {
-      soundEffect.play();
+    function toggleTimer() {
+      if (currentMode === 'clock') return;
+
+      const startBtn = document.getElementById('startBtn');
+      if (timerState === 'running') {
+        timerState = 'paused';
+        startBtn.innerText = 'Resume';
+      } else {
+        timerState = 'running';
+        startBtn.innerText = 'Pause';
+      }
     }
-  }
 
-  // Initialize everything
-  initScene();
-  updateDisplay();
+    function resetTimer() {
+      timerState = 'stopped';
+      document.getElementById('startBtn').innerText = 'Start';
+      timeRemaining = (currentMode === 'work') ? workDuration : restDuration;
+      renderRemainingTime();
+    }
 
-</script>
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      
+      const label = document.getElementById('statusLabel');
+      const startBtn = document.getElementById('startBtn');
+
+      if (mode === 'work') {
+        document.querySelectorAll('.mode-btn')[0].classList.add('active');
+        label.innerText = 'Focus Time';
+        startBtn.style.display = 'inline-block';
+      } else if (mode === 'rest') {
+        document.querySelectorAll('.mode-btn')[1].classList.add('active');
+        label.innerText = 'Rest & Recharge';
+        startBtn.style.display = 'inline-block';
+      } else {
+        document.querySelectorAll('.mode-btn')[2].classList.add('active');
+        label.innerText = 'Real-Time Clock';
+        startBtn.style.display = 'none';
+      }
+      resetTimer();
+    }
+
+    function updateCustomTimes() {
+      workDuration = (parseInt(document.getElementById('workInput').value) || 25) * 60;
+      restDuration = (parseInt(document.getElementById('restInput').value) || 5) * 60;
+      resetTimer();
+    }
+
+    // Audio Synthesizer (Web Audio API)
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playAlarmSound() {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5); // A5
+
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.8);
+    }
+
+    function toggleAmbientMusic(type) {
+      initAudio();
+      if (ambientNode) {
+        ambientNode.stop();
+        ambientNode = null;
+      }
+
+      if (type === 'none') return;
+
+      const bufferSize = audioCtx.sampleRate * 2;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (type === 'white' ? 0.02 : 0.05);
+      }
+
+      ambientNode = audioCtx.createBufferSource();
+      ambientNode.buffer = buffer;
+      ambientNode.loop = true;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = type === 'waves' ? 'lowpass' : 'bandpass';
+      filter.frequency.value = type === 'waves' ? 200 : 800;
+
+      ambientNode.connect(filter);
+      filter.connect(audioCtx.destination);
+      ambientNode.start();
+    }
+
+    // Dynamic Themes
+    function changeTheme(theme) {
+      const root = document.documentElement;
+      if (theme === 'cosmic') {
+        root.style.setProperty('--bg-gradient', 'linear-gradient(135deg, #0f172a, #1e1b4b, #31103f)');
+        root.style.setProperty('--accent', '#818cf8');
+        root.style.setProperty('--accent-glow', 'rgba(129, 140, 248, 0.4)');
+        root.style.setProperty('--digit-text', '#6366f1');
+      } else if (theme === 'cyberpunk') {
+        root.style.setProperty('--bg-gradient', 'linear-gradient(135deg, #050505, #1a0022, #001a22)');
+        root.style.setProperty('--accent', '#00f0ff');
+        root.style.setProperty('--accent-glow', 'rgba(0, 240, 255, 0.5)');
+        root.style.setProperty('--digit-text', '#ff007f');
+      } else if (theme === 'emerald') {
+        root.style.setProperty('--bg-gradient', 'linear-gradient(135deg, #022c22, #064e3b, #022c22)');
+        root.style.setProperty('--accent', '#34d399');
+        root.style.setProperty('--accent-glow', 'rgba(52, 211, 153, 0.4)');
+        root.style.setProperty('--digit-text', '#10b981');
+      } else if (theme === 'sunset') {
+        root.style.setProperty('--bg-gradient', 'linear-gradient(135deg, #451a03, #78350f, #701a75)');
+        root.style.setProperty('--accent', '#fb923c');
+        root.style.setProperty('--accent-glow', 'rgba(251, 146, 60, 0.4)');
+        root.style.setProperty('--digit-text', '#f43f5e');
+      }
+    }
+
+    // Initialization
+    window.onload = () => {
+      init3DWheels();
+      setMode('work');
+      setInterval(tick, 1000);
+    };
+  </script>
 </body>
 </html>
